@@ -1,0 +1,118 @@
+#!/usr/bin/python
+
+import sys
+import os
+import shutil
+
+
+def doc():
+    """print code help"""
+    print('Usage:  eml2html <emlfile>\n')
+    print('Description:\n'
+          ' eml2html converts an .eml file to the html format')
+
+
+if len(sys.argv) == 1:
+    # no input file specified. return doc
+    doc()
+elif '--help' in sys.argv:
+    # help requested, print help
+    doc()
+else:
+    ####################################################################################################################
+    # All good, program running here ###################################################################################
+    #
+    print 'Number of arguments:', len(sys.argv), 'arguments.'
+    print 'Argument List:', str(sys.argv)
+
+    if os.path.isabs(sys.argv[-1]):
+        filepath = sys.argv[-1]
+    else:
+        filepath = os.path.join(os.getcwd(), sys.argv[-1])
+
+    filepathroot = os.path.splitext(filepath)[0]
+    subdirpath   = '{0}/'.format(filepathroot)
+    logfilepath  = '{0}.log'.format(filepathroot)
+    txtfilepath  = '{0}.txt'.format(filepathroot)
+    htmlfilepath = '{0}.html'.format(filepathroot)
+
+    print filepath
+    print subdirpath
+    print txtfilepath
+    print htmlfilepath
+    print logfilepath
+
+    # handle exception if filepath does not specify an existing eml file
+    if not(os.path.exists(filepath)):
+        print('eml file {0} does not exist'.format(filepath))
+        doc()
+        exit()
+
+    # munpack
+    os.mkdir(subdirpath)
+    os.system('munpack -t -C {0} {1} > {2}'.format(subdirpath, filepath, logfilepath))
+
+    # parse munpack output
+    with open(logfilepath, 'r') as f:
+        parts = f.readlines()
+        tmp_masterhtml = False
+        tmp_mastertxt  = False
+        for i in xrange(len(parts)):
+            parts[i] = {'str': parts[i].replace('\r', '').replace('\n', '')}
+            parts[i]['orgfilename'] = parts[i]['str'].split(' (')[0]
+            parts[i]['mimetype']    = parts[i]['str'].split(' (')[1][0:-1]
+            parts[i]['extension']   = parts[i]['mimetype'].split('/')[1]
+            if parts[i]['extension'] == 'jpeg':
+                parts[i]['extension'] = 'jpg'
+            if parts[i]['extension'] == 'plain':
+                parts[i]['extension'] = 'txt'
+
+            # identify role of the part (master vs slave)
+            if not(tmp_masterhtml) and parts[i]['mimetype'] == 'text/html':
+                parts[i]['role'] = 'master'
+                tmp_masterhtml = True
+            elif not(tmp_mastertxt) and parts[i]['mimetype'] == 'text/plain':
+                parts[i]['role'] = 'master'
+                tmp_mastertxt = True
+            else:
+                parts[i]['role'] = 'slave'
+            parts[i]['filename'] = '.'.join([parts[i]['orgfilename'], parts[i]['extension']])
+
+    # reorganize output files
+    for i in xrange(len(parts)):
+        # remame and remove files
+        if parts[i]['role'] == 'master' and parts[i]['mimetype'] == 'text/plain':
+            parts[i]['filepath'] = txtfilepath
+        else:
+            parts[i]['filepath'] = os.path.join(subdirpath, parts[i]['filename'])
+        shutil.move(os.path.join(subdirpath, parts[i]['orgfilename']), parts[i]['filepath'])
+        # get filepath of original master html file
+        if parts[i]['role'] == 'master' and parts[i]['mimetype'] == 'text/html':
+            orghtmlfilepath = parts[i]['filepath']
+    print orghtmlfilepath
+
+    # parse html file, update file references and write changes to final html file.
+
+
+    exit()
+    filename = ''
+    subdirname = ''
+    dirpath = ''
+    logfilename = '{0}.log'.format(subdirname)
+    subdir = os.path.join(dirpath, subdirname)
+    if False:
+        # simple. from eml file, no mime
+        for filename in [f for f in filenames if f.endswith('.eml')]:
+            inpath = os.path.join(dirpath, filename)
+            outpath = ''.join([inpath[0:-3], 'html'])
+            writeoutput = False
+            with open(outpath, 'w') as outfile:
+                with open(inpath, 'r') as infile:
+                    for line in infile:
+                        if line.startswith('<html>'):
+                            writeoutput = True
+                        if line.startswith('</html>'):
+                            writeoutput = False
+                        if writeoutput or line.startswith('</html>'):
+                            outfile.write(line)
+        dirpath, dirnames, filenames = next(os.walk(thisdir))
