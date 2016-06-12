@@ -112,7 +112,6 @@ else:
                         lineparts[j] = sep1.join( [ lineparts1[0], sep2.join(lineparts2) ] )
                     line = sep0.join(lineparts)
                 fout.write(line)
-    
     exit()
 
     filename = ''
